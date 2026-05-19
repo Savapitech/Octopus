@@ -1,0 +1,73 @@
+---
+- name: Add NodeSource GPG key
+  ansible.builtin.get_url:
+    url: https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key
+    dest: /usr/share/keyrings/nodesource.asc
+    mode: '0644'
+
+- name: Add NodeSource apt repository
+  ansible.builtin.deb822_repository:
+    name: nodesource
+    types: deb
+    uris: https://deb.nodesource.com/node_20.x
+    suites: nodistro
+    components: main
+    signed_by: /usr/share/keyrings/nodesource.asc
+    state: present
+
+- name: Install Node.js
+  ansible.builtin.apt:
+    name: nodejs
+    state: present
+    update_cache: true
+
+- name: Copy result.tar to server
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/result.tar"
+    dest: /opt/result.tar
+    mode: '0644'
+
+- name: Extract result application
+  ansible.builtin.unarchive:
+    src: /opt/result.tar
+    dest: /opt/
+    remote_src: true
+    creates: /opt/result
+
+- name: Install result Node.js dependencies
+  ansible.builtin.command:
+    cmd: npm install --omit=dev
+    chdir: /opt/result
+    creates: /opt/result/node_modules
+
+- name: Create result environment file
+  ansible.builtin.copy:
+    dest: /etc/result.env
+    mode: '0600'
+    content: |
+      POSTGRES_HOST={{ hostvars[groups['postgresql'][0]]['ansible_host'] }}
+      POSTGRES_PORT=5432
+      POSTGRES_DB=paul
+      POSTGRES_USER=paul
+      POSTGRES_PASSWORD={{ postgresql_password }}
+
+- name: Deploy result systemd service
+  ansible.builtin.copy:
+    src: result.service
+    dest: /etc/systemd/system/result.service
+    mode: '0644'
+  register: result_service
+
+- name: Reload systemd and restart result if service changed
+  ansible.builtin.systemd:
+    name: result
+    state: restarted
+    daemon_reload: true
+  when: result_service.changed
+
+- name: Enable and start result service
+  ansible.builtin.systemd:
+    name: result
+    enabled: true
+    state: started
+    daemon_reload: true

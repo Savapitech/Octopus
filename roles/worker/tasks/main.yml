@@ -1,0 +1,60 @@
+---
+- name: Install Java 21 and Maven
+  ansible.builtin.apt:
+    name:
+      - openjdk-21-jdk
+      - maven
+    state: present
+    update_cache: true
+
+- name: Copy worker.tar to server
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/worker.tar"
+    dest: /opt/worker.tar
+    mode: '0644'
+
+- name: Extract worker application
+  ansible.builtin.unarchive:
+    src: /opt/worker.tar
+    dest: /opt/
+    remote_src: true
+    creates: /opt/worker
+
+- name: Build worker with Maven
+  ansible.builtin.command:
+    cmd: mvn package -DskipTests --no-transfer-progress
+    chdir: /opt/worker
+    creates: /opt/worker/target/worker-jar-with-dependencies.jar
+
+- name: Create worker environment file
+  ansible.builtin.copy:
+    dest: /etc/worker.env
+    mode: '0600'
+    content: |
+      REDIS_HOST={{ hostvars[groups['redis'][0]]['ansible_host'] }}
+      POSTGRES_HOST={{ hostvars[groups['postgresql'][0]]['ansible_host'] }}
+      POSTGRES_PORT=5432
+      POSTGRES_DB=paul
+      POSTGRES_USER=paul
+      POSTGRES_PASSWORD={{ postgresql_password }}
+
+- name: Deploy worker systemd service
+  ansible.builtin.copy:
+    src: worker.service
+    dest: /etc/systemd/system/worker.service
+    mode: '0644'
+  register: worker_service
+
+- name: Reload systemd and restart worker if service changed
+  ansible.builtin.systemd:
+    name: worker
+    state: restarted
+    daemon_reload: true
+  when: worker_service.changed
+
+- name: Enable and start worker service
+  ansible.builtin.systemd:
+    name: worker
+    enabled: true
+    state: started
+    daemon_reload: true

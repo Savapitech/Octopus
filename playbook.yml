@@ -9,22 +9,22 @@
   roles:
     - redis
 
-# - hosts: postgresql
-#   become: true
-#   roles:
-#     - postgresql
-#
-# - hosts: poll
-#   become: true
-#   roles:
-#     - poll
-#
-# - hosts: result
-#   become: true
-#   roles:
-#     - result
-#
-# - hosts: worker
-#   become: true
-#   roles:
-#     - worker
+- hosts: postgresql
+  become: true
+  roles:
+    - postgresql
+
+- hosts: poll
+  become: true
+  roles:
+    - poll
+
+- hosts: result
+  become: true
+  roles:
+    - result
+
+- hosts: worker
+  become: true
+  roles:
+    - worker

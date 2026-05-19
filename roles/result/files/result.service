@@ -1,0 +1,13 @@
+[Unit]
+Description=Result application
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/result
+EnvironmentFile=/etc/result.env
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
