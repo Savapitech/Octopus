@@ -5,9 +5,23 @@
     state: present
     update_cache: true
 
-- name: Start Redis
+- name: Deploy Redis configuration
+  ansible.builtin.copy:
+    src: redis.conf
+    dest: /etc/redis/redis.conf
+    owner: redis
+    group: redis
+    mode: '0640'
+  register: redis_conf
+
+- name: Restart Redis if config changed
+  ansible.builtin.systemd:
+    name: redis-server
+    state: restarted
+  when: redis_conf.changed
+
+- name: Enable and start Redis
   ansible.builtin.systemd:
     name: redis-server
     enabled: true
     state: started
-

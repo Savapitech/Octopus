@@ -1,37 +1,21 @@
 ---
-- name: install the python3 command
+- name: Update apt cache
   ansible.builtin.apt:
-    name: python3
-    state: present
     update_cache: true
+    cache_valid_time: 3600
 
-- name: install the curl command
+- name: Install useful packages
   ansible.builtin.apt:
-    name: curl
+    name:
+      - python3
+      - python3-venv
+      - python3-packaging
+      - curl
+      - vim
+      - tar
+      - ca-certificates
+      - gnupg
+      - apt-transport-https
+      - lsb-release
+      - net-tools
     state: present
-    update_cache: true
-
-- name: install the vim command
-  ansible.builtin.apt:
-    name: vim
-    state: present
-    update_cache: true
-
-- name: install the tar command
-  ansible.builtin.apt:
-    name: tar
-    state: present
-    update_cache: true
-
-- name: install the ca-certificate command
-  ansible.builtin.apt:
-    name: ca-certificates
-    state: present
-    update_cache: true
-
-- name: install the gnupg command
-  ansible.builtin.apt:
-    name: gnupg
-    state: present
-    update_cache: true
-
