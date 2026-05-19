@@ -1,0 +1,55 @@
+---
+- name: Copy poll.tar to server
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/poll.tar"
+    dest: /opt/poll.tar
+    mode: '0644'
+
+- name: Extract poll application
+  ansible.builtin.unarchive:
+    src: /opt/poll.tar
+    dest: /opt/
+    remote_src: true
+    creates: /opt/poll
+
+- name: Install poll application dependencies
+  ansible.builtin.pip:
+    requirements: /opt/poll/requirements.txt
+    virtualenv: /opt/poll/venv
+    virtualenv_command: python3 -m venv
+    state: present
+
+- name: Install gunicorn for poll
+  ansible.builtin.pip:
+    name: gunicorn
+    virtualenv: /opt/poll/venv
+    virtualenv_command: python3 -m venv
+    state: present
+
+- name: Create poll environment file
+  ansible.builtin.copy:
+    dest: /etc/poll.env
+    mode: '0600'
+    content: |
+      REDIS_HOST={{ hostvars[groups['redis'][0]]['ansible_host'] }}
+
+- name: Deploy poll systemd service
+  ansible.builtin.copy:
+    src: poll.service
+    dest: /etc/systemd/system/poll.service
+    mode: '0644'
+  register: poll_service
+
+- name: Reload systemd and restart poll if service changed
+  ansible.builtin.systemd:
+    name: poll
+    state: restarted
+    daemon_reload: true
+  when: poll_service.changed
+
+- name: Enable and start poll service
+  ansible.builtin.systemd:
+    name: poll
+    enabled: true
+    state: started
+    daemon_reload: true
