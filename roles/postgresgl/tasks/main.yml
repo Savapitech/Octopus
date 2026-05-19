@@ -1,0 +1,12 @@
+---
+
+- name: get Postgresql repository
+  ansible.builtin.deb822_repository:
+    name: postgresql
+    uris: https://apt.postgresql.org/pub/repos/apt/dists/trixie-pgdg/
+    components: main
+    state: present
+
+- name: Install Postgresql
+  ansible.builtin.apt:
+    - name: postgresql

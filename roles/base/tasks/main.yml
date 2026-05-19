@@ -1,0 +1,37 @@
+---
+- name: install the python3 command
+  ansible.builtin.apt:
+    name: python3
+    state: present
+    update_cache: true
+
+- name: install the curl command
+  ansible.builtin.apt:
+    name: curl
+    state: present
+    update_cache: true
+
+- name: install the vim command
+  ansible.builtin.apt:
+    name: vim
+    state: present
+    update_cache: true
+
+- name: install the tar command
+  ansible.builtin.apt:
+    name: tar
+    state: present
+    update_cache: true
+
+- name: install the ca-certificate command
+  ansible.builtin.apt:
+    name: ca-certificates
+    state: present
+    update_cache: true
+
+- name: install the gnupg command
+  ansible.builtin.apt:
+    name: gnupg
+    state: present
+    update_cache: true
+
