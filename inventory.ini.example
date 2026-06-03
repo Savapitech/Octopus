@@ -1,0 +1,26 @@
+# Inventory example — copy to inventory.ini and fill in your VM IPs
+# inventory.ini is gitignored (contains sensitive IPs)
+#
+# Usage:
+#   cp inventory.ini.example inventory.ini
+#   # Edit inventory.ini with your actual IPs and SSH user
+#   ansible-playbook -i inventory.ini playbook.yml --vault-password-file .vault_pass
+
+[redis]
+redis01 ansible_host=<REDIS_VM_IP>
+
+[postgresql]
+postgresql01 ansible_host=<POSTGRESQL_VM_IP>
+
+[poll]
+poll01 ansible_host=<POLL_VM_IP>
+
+[result]
+result01 ansible_host=<RESULT_VM_IP>
+
+[worker]
+worker01 ansible_host=<WORKER_VM_IP>
+
+[all:vars]
+ansible_user=<SSH_USER>
+ansible_ssh_private_key_file=~/.ssh/id_rsa
