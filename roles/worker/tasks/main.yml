@@ -6,12 +6,14 @@
       - maven
     state: present
     update_cache: true
+  become: true
 
 - name: Copy worker.tar to server
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/worker.tar"
     dest: /opt/worker.tar
     mode: '0644'
+  become: true
 
 - name: Extract worker application
   ansible.builtin.unarchive:
@@ -19,12 +21,14 @@
     dest: /opt/
     remote_src: true
     creates: /opt/worker
+  become: true
 
 - name: Build worker with Maven
   ansible.builtin.command:
     cmd: mvn package -DskipTests --no-transfer-progress
     chdir: /opt/worker
     creates: /opt/worker/target/worker-jar-with-dependencies.jar
+  become: true
 
 - name: Create worker environment file
   ansible.builtin.copy:
@@ -37,6 +41,7 @@
       POSTGRES_DB=paul
       POSTGRES_USER=paul
       POSTGRES_PASSWORD={{ postgresql_password }}
+  become: true
 
 - name: Deploy worker systemd service
   ansible.builtin.copy:
@@ -44,6 +49,7 @@
     dest: /etc/systemd/system/worker.service
     mode: '0644'
   register: worker_service
+  become: true
 
 - name: Reload systemd and restart worker if service changed
   ansible.builtin.systemd:
@@ -51,6 +57,7 @@
     state: restarted
     daemon_reload: true
   when: worker_service.changed
+  become: true
 
 - name: Enable and start worker service
   ansible.builtin.systemd:
@@ -58,3 +65,4 @@
     enabled: true
     state: started
     daemon_reload: true
+  become: true

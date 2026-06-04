@@ -4,6 +4,7 @@
     url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
     dest: /usr/share/keyrings/postgresql.asc
     mode: '0644'
+  become: true
 
 - name: Add PostgreSQL apt repository
   ansible.builtin.deb822_repository:
@@ -14,6 +15,7 @@
     components: main
     signed_by: /usr/share/keyrings/postgresql.asc
     state: present
+  become: true
 
 - name: Install PostgreSQL 16
   ansible.builtin.apt:
@@ -22,12 +24,14 @@
       - python3-psycopg2
     state: present
     update_cache: true
+  become: true
 
 - name: Enable and start PostgreSQL
   ansible.builtin.systemd:
     name: postgresql
     enabled: true
     state: started
+  become: true
 
 - name: Deploy pg_hba.conf
   ansible.builtin.copy:
@@ -37,6 +41,7 @@
     group: postgres
     mode: '0640'
   register: pg_hba
+  become: true
 
 - name: Configure PostgreSQL to listen on all interfaces
   ansible.builtin.lineinfile:
@@ -44,16 +49,19 @@
     regexp: "^#?listen_addresses"
     line: "listen_addresses = '*'"
   register: pg_conf
+  become: true
 
 - name: Restart PostgreSQL if config changed
   ansible.builtin.systemd:
     name: postgresql
     state: restarted
   when: pg_hba.changed or pg_conf.changed
+  become: true
 
 - name: Check if paul user exists
   ansible.builtin.command:
     cmd: psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='paul'"
+  become: true
   become_user: postgres
   register: paul_user_check
   changed_when: false
@@ -61,12 +69,14 @@
 - name: Create paul database user
   ansible.builtin.command:
     cmd: "psql -c \"CREATE USER paul WITH PASSWORD '{{ postgresql_password }}';\""
+  become: true
   become_user: postgres
   when: paul_user_check.stdout != "1"
 
 - name: Check if paul database exists
   ansible.builtin.command:
     cmd: psql -tAc "SELECT 1 FROM pg_database WHERE datname='paul'"
+  become: true
   become_user: postgres
   register: paul_db_check
   changed_when: false
@@ -74,6 +84,7 @@
 - name: Create paul database
   ansible.builtin.command:
     cmd: psql -c "CREATE DATABASE paul OWNER paul;"
+  become: true
   become_user: postgres
   when: paul_db_check.stdout != "1"
 
@@ -86,11 +97,13 @@
 - name: Apply schema to paul database
   ansible.builtin.command:
     cmd: psql -d paul -f /tmp/schema.sql
+  become: true
   become_user: postgres
   changed_when: false
 
 - name: Grant paul user full access to votes table
   ansible.builtin.command:
     cmd: psql -d paul -c "GRANT ALL PRIVILEGES ON TABLE votes TO paul;"
+  become: true
   become_user: postgres
   changed_when: false
