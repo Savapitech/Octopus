@@ -19,3 +19,7 @@
       - lsb-release
       - net-tools
     state: present
+
+- name: Set Timezone
+  community.general.timezone:
+    name: "{{timezone | default('Europe/Paris')}}"
