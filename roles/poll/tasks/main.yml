@@ -20,14 +20,15 @@
     dest: /opt/poll.tar
     mode: '0644'
   become: true
+  register: poll_tar
 
 - name: Extract poll application
   ansible.builtin.unarchive:
     src: /opt/poll.tar
     dest: /opt/
     remote_src: true
-    creates: /opt/poll
   become: true
+  when: poll_tar.changed
   notify: Restart poll
 
 - name: Install poll application dependencies
