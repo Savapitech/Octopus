@@ -22,22 +22,24 @@
     dest: /opt/worker.tar
     mode: '0644'
   become: true
+  register: worker_tar
 
 - name: Extract worker application
   ansible.builtin.unarchive:
     src: /opt/worker.tar
     dest: /opt/
     remote_src: true
-    creates: /opt/worker
   become: true
+  when: worker_tar.changed
+  register: worker_extract
   notify: Restart worker
 
 - name: Build worker with Maven
   ansible.builtin.command:
     cmd: mvn package -DskipTests --no-transfer-progress
     chdir: /opt/worker
-    creates: /opt/worker/target/worker-jar-with-dependencies.jar
   become: true
+  when: worker_extract.changed | default(false)
   notify: Restart worker
 
 - name: Create worker environment file
