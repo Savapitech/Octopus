@@ -1,4 +1,19 @@
 ---
+- name: Create poll service user
+  ansible.builtin.user:
+    name: poll
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+  become: true
+
+- name: Install Python venv support
+  ansible.builtin.apt:
+    name: python3-venv
+    state: present
+    update_cache: true
+  become: true
+
 - name: Copy poll.tar to server
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/poll.tar"
@@ -13,45 +28,51 @@
     remote_src: true
     creates: /opt/poll
   become: true
+  notify: Restart poll
 
 - name: Install poll application dependencies
   ansible.builtin.pip:
     requirements: /opt/poll/requirements.txt
     virtualenv: /opt/poll/venv
     virtualenv_command: python3 -m venv
-    state: present
   become: true
+  notify: Restart poll
 
 - name: Install gunicorn for poll
   ansible.builtin.pip:
     name: gunicorn
     virtualenv: /opt/poll/venv
     virtualenv_command: python3 -m venv
-    state: present
   become: true
+  notify: Restart poll
 
 - name: Create poll environment file
   ansible.builtin.copy:
     dest: /etc/poll.env
-    mode: '0600'
+    owner: poll
+    group: poll
+    mode: '0640'
     content: |
-      REDIS_HOST={{ hostvars[groups['redis'][0]]['ansible_host'] }}
+      REDIS_HOST={{ redis_host }}
+      REDIS_PORT={{ redis_port }}
+      REDIS_PASSWORD={{ redis_password }}
   become: true
+  no_log: true
+  notify: Restart poll
 
 - name: Deploy poll systemd service
   ansible.builtin.copy:
     src: poll.service
     dest: /etc/systemd/system/poll.service
     mode: '0644'
-  register: poll_service
   become: true
+  notify: Restart poll
 
-- name: Reload systemd and restart poll if service changed
-  ansible.builtin.systemd:
-    name: poll
-    state: restarted
-    daemon_reload: true
-  when: poll_service.changed
+- name: Allow public access to the poll client
+  community.general.ufw:
+    rule: allow
+    port: '80'
+    proto: tcp
   become: true
 
 - name: Enable and start poll service

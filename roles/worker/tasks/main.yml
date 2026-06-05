@@ -1,8 +1,16 @@
 ---
+- name: Create worker service user
+  ansible.builtin.user:
+    name: worker
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+  become: true
+
 - name: Install Java 21 and Maven
   ansible.builtin.apt:
     name:
-      - openjdk-21-jdk
+      - openjdk-21-jdk-headless
       - maven
     state: present
     update_cache: true
@@ -22,6 +30,7 @@
     remote_src: true
     creates: /opt/worker
   become: true
+  notify: Restart worker
 
 - name: Build worker with Maven
   ansible.builtin.command:
@@ -29,35 +38,34 @@
     chdir: /opt/worker
     creates: /opt/worker/target/worker-jar-with-dependencies.jar
   become: true
+  notify: Restart worker
 
 - name: Create worker environment file
   ansible.builtin.copy:
     dest: /etc/worker.env
-    mode: '0600'
+    owner: worker
+    group: worker
+    mode: '0640'
     content: |
-      REDIS_HOST={{ hostvars[groups['redis'][0]]['ansible_host'] }}
-      POSTGRES_HOST={{ hostvars[groups['postgresql'][0]]['ansible_host'] }}
-      POSTGRES_PORT=5432
-      POSTGRES_DB=paul
-      POSTGRES_USER=paul
+      REDIS_HOST={{ redis_host }}
+      REDIS_PORT={{ redis_port }}
+      REDIS_PASSWORD={{ redis_password }}
+      POSTGRES_HOST={{ postgres_host }}
+      POSTGRES_PORT={{ postgres_port }}
+      POSTGRES_DB={{ postgres_db }}
+      POSTGRES_USER={{ postgres_user }}
       POSTGRES_PASSWORD={{ postgresql_password }}
   become: true
+  no_log: true
+  notify: Restart worker
 
 - name: Deploy worker systemd service
   ansible.builtin.copy:
     src: worker.service
     dest: /etc/systemd/system/worker.service
     mode: '0644'
-  register: worker_service
   become: true
-
-- name: Reload systemd and restart worker if service changed
-  ansible.builtin.systemd:
-    name: worker
-    state: restarted
-    daemon_reload: true
-  when: worker_service.changed
-  become: true
+  notify: Restart worker
 
 - name: Enable and start worker service
   ansible.builtin.systemd:

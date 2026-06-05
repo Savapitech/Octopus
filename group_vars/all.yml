@@ -2,6 +2,26 @@
 ansible_pipelining: true
 ansible_python_interpreter: /usr/bin/python3
 
+redis_host: "{{ hostvars[groups['redis'][0]].ansible_host | default(groups['redis'][0]) }}"
+redis_port: 6379
+
+postgres_host: "{{ hostvars[groups['postgresql'][0]].ansible_host | default(groups['postgresql'][0]) }}"
+postgres_port: 5432
+postgres_db: paul
+postgres_user: paul
+
+poll_host: "{{ hostvars[groups['poll'][0]].ansible_host | default(groups['poll'][0]) }}"
+result_host: "{{ hostvars[groups['result'][0]].ansible_host | default(groups['result'][0]) }}"
+worker_host: "{{ hostvars[groups['worker'][0]].ansible_host | default(groups['worker'][0]) }}"
+
+redis_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          32386535653333363839303938343263356462376666343637636665383062613731323763306262
+          3436616132323561383033653434333638653638393864390a666632663264353666353133326532
+          38373365396138373339323732663165616433333934346330353964656138353239303530626262
+          6261376332653830630a326165356262626633663038383833366230336665373764303366373864
+          38653738636238656561313534333634643566646235373334363761386132356662
+
 postgresql_password: !vault |
           $ANSIBLE_VAULT;1.1;AES256
           65623766633365333939663639623732383964623563643864656538383835623731616434616138

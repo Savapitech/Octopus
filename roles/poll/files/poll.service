@@ -1,11 +1,17 @@
 [Unit]
-Description=Poll application
-After=network.target
+Description=Poll web client (Flask)
+After=network-online.target
+Wants=network-online.target
 
 [Service]
+User=poll
+Group=poll
 WorkingDirectory=/opt/poll
 EnvironmentFile=/etc/poll.env
 ExecStart=/opt/poll/venv/bin/gunicorn -w 4 -b 0.0.0.0:80 wsgi:app
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+PrivateTmp=true
 Restart=always
 RestartSec=5
 

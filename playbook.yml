@@ -1,26 +1,68 @@
 ---
-- hosts: all
+- name: Base configuration for every machine
+  hosts: all
   become: true
   roles:
     - base
 
-- hosts: redis
+- name: Redis queue
+  hosts: redis
   become: true
   roles:
     - redis
 
-- hosts: postgresql
+- name: PostgreSQL database
+  hosts: postgresql
   roles:
     - postgresql
 
-- hosts: poll
+- name: Poll web client
+  hosts: poll
   roles:
     - poll
 
-- hosts: result
+- name: Worker
+  hosts: worker
+  roles:
+    - worker
+
+- name: Result web client
+  hosts: result
   roles:
     - result
 
-- hosts: worker
-  roles:
-    - worker
+- name: End-to-end smoke test
+  hosts: localhost
+  gather_facts: false
+  tags:
+    - smoke
+    - never
+  tasks:
+    - name: Read the current vote total on the result page
+      ansible.builtin.uri:
+        url: "http://{{ result_host }}/"
+        return_content: true
+      register: smoke_before
+      changed_when: false
+
+    - name: Submit a vote on the poll client
+      ansible.builtin.uri:
+        url: "http://{{ poll_host }}/"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          vote: a
+        status_code: 200
+      changed_when: false
+
+    - name: Wait for the vote to reach the result page
+      ansible.builtin.uri:
+        url: "http://{{ result_host }}/"
+        return_content: true
+      register: smoke_after
+      until: >-
+        (smoke_after.content | regex_findall('class="count">(\d+)<') | map('int') | sum)
+        > (smoke_before.content | regex_findall('class="count">(\d+)<') | map('int') | sum)
+      retries: 10
+      delay: 2
+      changed_when: false

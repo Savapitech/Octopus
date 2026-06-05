@@ -40,70 +40,68 @@
     owner: postgres
     group: postgres
     mode: '0640'
-  register: pg_hba
   become: true
+  notify: Restart postgresql
 
 - name: Configure PostgreSQL to listen on all interfaces
   ansible.builtin.lineinfile:
     path: /etc/postgresql/16/main/postgresql.conf
-    regexp: "^#?listen_addresses"
+    regexp: '^#?listen_addresses'
     line: "listen_addresses = '*'"
-  register: pg_conf
   become: true
+  notify: Restart postgresql
 
-- name: Restart PostgreSQL if config changed
-  ansible.builtin.systemd:
-    name: postgresql
-    state: restarted
-  when: pg_hba.changed or pg_conf.changed
-  become: true
+- name: Apply the PostgreSQL configuration now
+  ansible.builtin.meta: flush_handlers
 
-- name: Check if paul user exists
-  ansible.builtin.command:
-    cmd: psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='paul'"
+- name: Create the paul database user with limited permissions
+  community.postgresql.postgresql_user:
+    name: "{{ postgres_user }}"
+    password: "md5{{ (postgresql_password + postgres_user) | hash('md5') }}"
+    role_attr_flags: NOSUPERUSER,NOCREATEDB,NOCREATEROLE
   become: true
   become_user: postgres
-  register: paul_user_check
-  changed_when: false
+  no_log: true
 
-- name: Create paul database user
-  ansible.builtin.command:
-    cmd: "psql -c \"CREATE USER paul WITH PASSWORD '{{ postgresql_password }}';\""
+- name: Create the paul database owned by paul
+  community.postgresql.postgresql_db:
+    name: "{{ postgres_db }}"
+    owner: "{{ postgres_user }}"
   become: true
   become_user: postgres
-  when: paul_user_check.stdout != "1"
 
-- name: Check if paul database exists
-  ansible.builtin.command:
-    cmd: psql -tAc "SELECT 1 FROM pg_database WHERE datname='paul'"
+- name: Check whether the votes table already exists
+  community.postgresql.postgresql_query:
+    login_host: 127.0.0.1
+    login_user: "{{ postgres_user }}"
+    login_password: "{{ postgresql_password }}"
+    login_db: "{{ postgres_db }}"
+    query: SELECT to_regclass('public.votes') AS reg
+  register: postgresql_votes_table
+  no_log: true
+
+- name: Create the votes table from schema.sql
+  community.postgresql.postgresql_query:
+    login_host: 127.0.0.1
+    login_user: "{{ postgres_user }}"
+    login_password: "{{ postgresql_password }}"
+    login_db: "{{ postgres_db }}"
+    query: "{{ lookup('ansible.builtin.file', 'schema.sql') }}"
+  no_log: true
+  when: postgresql_votes_table.query_result[0].reg is none
+
+- name: Allow the worker to reach PostgreSQL
+  community.general.ufw:
+    rule: allow
+    port: '{{ postgres_port }}'
+    proto: tcp
+    from_ip: "{{ worker_host }}"
   become: true
-  become_user: postgres
-  register: paul_db_check
-  changed_when: false
 
-- name: Create paul database
-  ansible.builtin.command:
-    cmd: psql -c "CREATE DATABASE paul OWNER paul;"
+- name: Allow the result client to reach PostgreSQL
+  community.general.ufw:
+    rule: allow
+    port: '{{ postgres_port }}'
+    proto: tcp
+    from_ip: "{{ result_host }}"
   become: true
-  become_user: postgres
-  when: paul_db_check.stdout != "1"
-
-- name: Copy schema file
-  ansible.builtin.copy:
-    src: schema.sql
-    dest: /tmp/schema.sql
-    mode: '0644'
-
-- name: Apply schema to paul database
-  ansible.builtin.command:
-    cmd: psql -d paul -f /tmp/schema.sql
-  become: true
-  become_user: postgres
-  changed_when: false
-
-- name: Grant paul user full access to votes table
-  ansible.builtin.command:
-    cmd: psql -d paul -c "GRANT ALL PRIVILEGES ON TABLE votes TO paul;"
-  become: true
-  become_user: postgres
-  changed_when: false
