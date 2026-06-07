@@ -9,7 +9,10 @@
 
 - name: Install Python venv support
   ansible.builtin.apt:
-    name: python3-venv
+    name:
+      - python3-venv
+      - python3-pip
+      - python3-packaging
     state: present
     update_cache: true
   become: true
